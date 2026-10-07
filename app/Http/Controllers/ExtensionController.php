@@ -20,6 +20,7 @@ use App\Support\LineTestExtension;
 use App\Support\ProvisionUrl;
 use App\Support\ProvisionStreamSupport;
 use App\Services\Fleet\ProvisionMacIndexSync;
+use App\Services\Provision\ProvisionOuiMapper;
 use App\Models\ProvisionStream;
 use Illuminate\Support\Facades\Schema;
 
@@ -388,6 +389,22 @@ class ExtensionController extends Controller
                     'macaddr' => [$e->getMessage()],
                     'Error' => $e->getMessage(),
                 ], $code);
+            }
+
+            // Soft-fill empty provision from OUI (does not touch devicevendor).
+            $fresh = $extension->fresh();
+            $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+                $macaddr,
+                $fresh?->provision,
+                $fresh?->sndcreds
+            );
+            if ($ouiPatch !== []) {
+                if (! Schema::hasColumn('ipphone', 'sndcreds')) {
+                    unset($ouiPatch['sndcreds']);
+                }
+                if ($ouiPatch !== []) {
+                    Extension::where('id', $extension->id)->update($ouiPatch);
+                }
             }
         }
 
@@ -767,13 +784,27 @@ class ExtensionController extends Controller
         } catch (\Exception $e) {
    			return Response::json(['Error' => $e->getMessage()],409);
     	}
-    	Extension::where('id', $extension->id)->update(['passwd' => ret_password()]);
+    	$legacyPatch = ['passwd' => ret_password()];
+        $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+            (string) $request->post('macaddr'),
+            null,
+            Schema::hasColumn('ipphone', 'sndcreds') ? 'Once' : null
+        );
+        if (isset($ouiPatch['provision'])) {
+            $legacyPatch['provision'] = $ouiPatch['provision'];
+        }
+        if (isset($ouiPatch['sndcreds']) && Schema::hasColumn('ipphone', 'sndcreds')) {
+            $legacyPatch['sndcreds'] = $ouiPatch['sndcreds'];
+        } elseif (Schema::hasColumn('ipphone', 'sndcreds')) {
+            $legacyPatch['sndcreds'] = 'Once';
+        }
+    	Extension::where('id', $extension->id)->update($legacyPatch);
 
 // create default Clsss of service contraints
 
     	$this->create_default_cos_instances($extension);
 
-		return response()->json($extension, 201);
+		return response()->json($extension->fresh(), 201);
 		
     }  
 
@@ -877,9 +908,22 @@ class ExtensionController extends Controller
             }
             $extension->macaddr = $newMac;
             // MAC is best-effort inventory only — do not rewrite device type from OUI.
+            // Soft-fill empty provision stream from manuf.txt OUI (not devicevendor).
+            $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+                $newMac,
+                $extension->provision,
+                $extension->sndcreds ?? null
+            );
+            if (isset($ouiPatch['provision'])) {
+                $extension->provision = $ouiPatch['provision'];
+            }
+            if (isset($ouiPatch['sndcreds']) && Schema::hasColumn('ipphone', 'sndcreds')) {
+                $extension->sndcreds = $ouiPatch['sndcreds'];
+            }
         } elseif ($macRemoved) {
             $extension->macaddr = null;
             // Leave device (WebRTC|MAILBOX|General SIP) unchanged.
+            // Do not clear provision on MAC clear.
         }
 
         // C3 — catalog MAC index before local persist (conflict must not leave half-state)
