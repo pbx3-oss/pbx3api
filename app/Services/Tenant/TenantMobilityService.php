@@ -80,6 +80,7 @@ class TenantMobilityService
 
             $mediaRoot = $workDir.'/media';
             $greetingBytes = $this->exportGreetingMedia($shortuid, $mediaRoot.'/greetings/'.$shortuid);
+            $mohBytes = $this->exportMohMedia($shortuid, $mediaRoot.'/moh/'.$shortuid);
             $recordingBytes = 0;
             if (! empty($options['include_recordings'])) {
                 $recordingBytes = $this->exportRecordingMedia($shortuid, $mediaRoot.'/recordings');
@@ -100,6 +101,7 @@ class TenantMobilityService
                 'row_counts' => $rowCounts,
                 'media' => [
                     'greetings_bytes' => $greetingBytes,
+                    'moh_bytes' => $mohBytes,
                     'recordings_bytes' => $recordingBytes,
                     'include_recordings' => ! empty($options['include_recordings']),
                 ],
@@ -197,7 +199,7 @@ class TenantMobilityService
 
             $portableImport = app(PortableUserMobility::class)->importFromWorkDir($workDir, $shortuid);
 
-            $mediaResult = ['greetings' => false, 'recordings' => false];
+            $mediaResult = ['greetings' => false, 'moh' => false, 'recordings' => false];
             if (empty($options['skip_media'])) {
                 $mediaResult = $this->installMedia($workDir, $shortuid, (string) ($tenant['pkey'] ?? ''));
             }
@@ -284,7 +286,7 @@ class TenantMobilityService
 
     /**
      * Full tenant wipe: all TENANT_DATA_TABLES rows for cluster aliases + cluster row.
-     * Matches import --replace cascade. Does not touch greeting/recording media trees (v1).
+     * Matches import --replace cascade. Does not remove greeting/recording/MOH media trees (v1).
      * Portable users are stripped by the caller via PortableUserMobility.
      *
      * @param  object{id: string, shortuid: string, pkey?: string}  $tenant
@@ -603,6 +605,23 @@ class TenantMobilityService
         return $this->copyTree($src, $destDir);
     }
 
+    /**
+     * Pack custom MOH for moh-{shortuid} only (never instance system moh/).
+     */
+    private function exportMohMedia(string $shortuid, string $destDir): int
+    {
+        if ($shortuid === '' || ! preg_match('/^[A-Za-z0-9_-]+$/', $shortuid)) {
+            return 0;
+        }
+        $mohRoot = rtrim((string) config('pbx3_directory.tenant_moh_root'), '/');
+        $src = "{$mohRoot}/moh-{$shortuid}";
+        if (! is_dir($src)) {
+            return 0;
+        }
+
+        return $this->copyTree($src, $destDir);
+    }
+
     private function exportRecordingMedia(string $shortuid, string $destDir): int
     {
         $recRoot = rtrim((string) config('pbx3_directory.tenant_recordings_root'), '/');
@@ -623,11 +642,11 @@ class TenantMobilityService
     }
 
     /**
-     * @return array{greetings: bool, recordings: bool}
+     * @return array{greetings: bool, moh: bool, recordings: bool}
      */
     private function installMedia(string $workDir, string $shortuid, string $tenantPkey): array
     {
-        $result = ['greetings' => false, 'recordings' => false];
+        $result = ['greetings' => false, 'moh' => false, 'recordings' => false];
         $soundsRoot = rtrim((string) config('pbx3_directory.tenant_sounds_root'), '/');
         $greetingsSrc = "{$workDir}/media/greetings/{$shortuid}";
         if (is_dir($greetingsSrc)) {
@@ -638,6 +657,21 @@ class TenantMobilityService
                 pbx3_request_syscmd('/bin/chown -R asterisk:asterisk '.escapeshellarg($dest));
                 pbx3_request_syscmd('/bin/chmod -R u+rwX,go+rX '.escapeshellarg($dest));
                 $result['greetings'] = true;
+            }
+        }
+
+        $mohSrc = "{$workDir}/media/moh/{$shortuid}";
+        if (is_dir($mohSrc) && preg_match('/^[A-Za-z0-9_-]+$/', $shortuid)) {
+            $mohRoot = rtrim((string) config('pbx3_directory.tenant_moh_root'), '/');
+            $dest = "{$mohRoot}/moh-{$shortuid}";
+            [$ok] = pbx3_request_syscmd('/bin/mkdir -p '.escapeshellarg($dest));
+            if ($ok !== null) {
+                pbx3_request_syscmd('/bin/cp -a '.escapeshellarg($mohSrc).'/. '.escapeshellarg($dest));
+                pbx3_request_syscmd('/bin/chown -R asterisk:asterisk '.escapeshellarg($dest));
+                pbx3_request_syscmd('/bin/chmod -R u+rwX,go+rX '.escapeshellarg($dest));
+                $result['moh'] = true;
+                // Same effect as SPA upload: pick up new files without waiting for Commit.
+                pbx3_request_syscmd("/usr/sbin/asterisk -rx 'moh reload'");
             }
         }
 
