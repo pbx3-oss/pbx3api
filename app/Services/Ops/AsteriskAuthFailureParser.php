@@ -3,7 +3,7 @@
 namespace App\Services\Ops;
 
 /**
- * Parse Asterisk messages for failed REGISTER / InvalidPassword (Fail2ban asterisk filter family).
+ * Parse Asterisk security (or legacy messages) lines for failed REGISTER / InvalidPassword.
  */
 final class AsteriskAuthFailureParser
 {

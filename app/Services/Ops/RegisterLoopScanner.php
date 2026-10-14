@@ -6,7 +6,7 @@ use App\Models\Sysglobal;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Scan Asterisk messages for whitelist-gated REGISTER auth loops; emit to Gatekeeper.
+ * Scan Asterisk security log for whitelist-gated REGISTER auth loops; emit to Gatekeeper.
  */
 final class RegisterLoopScanner
 {
@@ -37,7 +37,14 @@ final class RegisterLoopScanner
             return $out;
         }
 
-        $logPath = (string) config('pbx3_ops.asterisk_messages_path', '/var/log/asterisk/messages');
+        $logPath = (string) config('pbx3_ops.asterisk_messages_path', '/var/log/asterisk/security');
+        // Rolling tip: until ensure-asterisk-logger-channels.sh has run, events may still be in messages.
+        if ($logPath !== '' && ! is_readable($logPath)) {
+            $fallback = '/var/log/asterisk/messages';
+            if (is_readable($fallback)) {
+                $logPath = $fallback;
+            }
+        }
         $jailPath = (string) config(
             'pbx3_ops.fail2ban_jail_path',
             '/etc/fail2ban/jail.d/pbx3-jails.conf'

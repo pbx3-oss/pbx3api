@@ -7,9 +7,11 @@ return [
     | Fleet ops — misconfigured phone REGISTER loops (whitelist-gated)
     |--------------------------------------------------------------------------
     |
-    | Scans /var/log/asterisk/messages for auth failures whose source IP is in
+    | Scans Asterisk security log for auth failures whose source IP is in
     | Fail2ban ignoreip (pbx3-jails.conf). Emits to Gatekeeper notify mail.
     | Do not ban those IPs — ops fix the handset.
+    | Default: /var/log/asterisk/security (split from messages). Override with
+    | PBX3_OPS_ASTERISK_SECURITY or legacy PBX3_OPS_ASTERISK_MESSAGES.
     |
     | Enable with PBX3_OPS_REGISTER_LOOP_ENABLED=true and Gatekeeper URL/token
     | (same PBX3_GATEKEEPER_* as recordings, or dedicated overrides below).
@@ -18,7 +20,10 @@ return [
 
     'register_loop_enabled' => filter_var(env('PBX3_OPS_REGISTER_LOOP_ENABLED', false), FILTER_VALIDATE_BOOL),
 
-    'asterisk_messages_path' => env('PBX3_OPS_ASTERISK_MESSAGES', '/var/log/asterisk/messages'),
+    'asterisk_messages_path' => env(
+        'PBX3_OPS_ASTERISK_SECURITY',
+        env('PBX3_OPS_ASTERISK_MESSAGES', '/var/log/asterisk/security')
+    ),
 
     'fail2ban_jail_path' => env(
         'PBX3_OPS_FAIL2BAN_JAIL',
