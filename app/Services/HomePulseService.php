@@ -93,6 +93,21 @@ class HomePulseService
     }
 
     /**
+     * Drop cached system posture (e.g. after start/stop Asterisk) so the next
+     * Home pulse returns a fresh pbx_runstate instead of a stale RUNNING/STOPPED.
+     */
+    public function invalidateSystemPosture(): void
+    {
+        try {
+            Cache::forget('home_pulse:system');
+        } catch (\Throwable $e) {
+            Log::warning('home pulse system cache forget failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Thin host pulse. Prefer /proc when open_basedir allows it; otherwise shell
      * fallbacks (golden nginx open_basedir excludes /proc).
      *
