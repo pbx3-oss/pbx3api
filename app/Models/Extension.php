@@ -64,6 +64,7 @@ class Extension extends Model
         'protocol',
         'provision',
         'provisionwith',
+        'sndcreds',
         'technology',
         'transport',
         'vmailfwd',

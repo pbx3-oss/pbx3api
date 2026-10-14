@@ -17,6 +17,12 @@ use App\Models\ClassOfService;
 use App\Models\CosProfile;
 use App\CustomClasses\Ami;
 use App\Support\LineTestExtension;
+use App\Support\ProvisionUrl;
+use App\Support\ProvisionStreamSupport;
+use App\Services\Fleet\ProvisionMacIndexSync;
+use App\Services\Provision\ProvisionOuiMapper;
+use App\Models\ProvisionStream;
+use Illuminate\Support\Facades\Schema;
 
 class ExtensionController extends Controller
 {
@@ -44,6 +50,8 @@ class ExtensionController extends Controller
 		'protocol' => 'in:IPV4,IPV6',
 		'provision' => 'string|nullable',
 		'provisionwith' => 'in:IP,FQDN',
+		// §4.3 — Once preferred; Always for vendors that re-fetch secrets every poll (e.g. Poly)
+		'sndcreds' => 'in:No,Once,Always',
 		'technology' => 'string|nullable',
 		'transport' => 'in:udp,tcp,tls,wss',
 		'vmailfwd' => 'email|nullable',
@@ -356,13 +364,51 @@ class ExtensionController extends Controller
         }
 
         // SIP password: auto-generate 12 chars (passwd not fillable; set via direct update)
-        Extension::where('id', $extension->id)->update(['passwd' => ret_password()]);
+        $secretPatch = ['passwd' => ret_password()];
+        if ($macaddr !== null && $macaddr !== '' && Schema::hasColumn('ipphone', 'sndcreds')) {
+            $secretPatch['sndcreds'] = 'Once';
+        }
+        Extension::where('id', $extension->id)->update($secretPatch);
 
         $this->create_default_cos_instances($extension);
 
         set_commit_dirty();
 
-        return response()->json($extension->fresh(), 201);
+        if ($macaddr !== null && $macaddr !== '') {
+            $tenant = $clusterShortuid ?? cluster_identifier_to_shortuid((string) ($extension->cluster ?? ''));
+            try {
+                app(ProvisionMacIndexSync::class)->claim($macaddr, (string) $tenant);
+            } catch (\RuntimeException $e) {
+                Extension::where('id', $extension->id)->update(['macaddr' => null]);
+                $code = (int) $e->getCode();
+                if ($code < 400 || $code > 599) {
+                    $code = 503;
+                }
+
+                return response()->json([
+                    'macaddr' => [$e->getMessage()],
+                    'Error' => $e->getMessage(),
+                ], $code);
+            }
+
+            // Soft-fill empty provision from OUI (does not touch devicevendor).
+            $fresh = $extension->fresh();
+            $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+                $macaddr,
+                $fresh?->provision,
+                $fresh?->sndcreds
+            );
+            if ($ouiPatch !== []) {
+                if (! Schema::hasColumn('ipphone', 'sndcreds')) {
+                    unset($ouiPatch['sndcreds']);
+                }
+                if ($ouiPatch !== []) {
+                    Extension::where('id', $extension->id)->update($ouiPatch);
+                }
+            }
+        }
+
+        return response()->json($this->enrichProvisionFields($extension->fresh()), 201);
     }
 
 /**
@@ -381,6 +427,7 @@ class ExtensionController extends Controller
     	} else {
     		$extension->tenant_pkey = $cluster;
     	}
+    	$this->enrichProvisionFields($extension);
     	// Include passwd only for single-extension (detail/edit); not in index/list
     	return $extension->makeVisible('passwd');
     }
@@ -737,13 +784,27 @@ class ExtensionController extends Controller
         } catch (\Exception $e) {
    			return Response::json(['Error' => $e->getMessage()],409);
     	}
-    	Extension::where('id', $extension->id)->update(['passwd' => ret_password()]);
+    	$legacyPatch = ['passwd' => ret_password()];
+        $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+            (string) $request->post('macaddr'),
+            null,
+            Schema::hasColumn('ipphone', 'sndcreds') ? 'Once' : null
+        );
+        if (isset($ouiPatch['provision'])) {
+            $legacyPatch['provision'] = $ouiPatch['provision'];
+        }
+        if (isset($ouiPatch['sndcreds']) && Schema::hasColumn('ipphone', 'sndcreds')) {
+            $legacyPatch['sndcreds'] = $ouiPatch['sndcreds'];
+        } elseif (Schema::hasColumn('ipphone', 'sndcreds')) {
+            $legacyPatch['sndcreds'] = 'Once';
+        }
+    	Extension::where('id', $extension->id)->update($legacyPatch);
 
 // create default Clsss of service contraints
 
     	$this->create_default_cos_instances($extension);
 
-		return response()->json($extension, 201);
+		return response()->json($extension->fresh(), 201);
 		
     }  
 
@@ -847,9 +908,47 @@ class ExtensionController extends Controller
             }
             $extension->macaddr = $newMac;
             // MAC is best-effort inventory only — do not rewrite device type from OUI.
+            // Soft-fill empty provision stream from manuf.txt OUI (not devicevendor).
+            $ouiPatch = app(ProvisionOuiMapper::class)->softFillPatch(
+                $newMac,
+                $extension->provision,
+                $extension->sndcreds ?? null
+            );
+            if (isset($ouiPatch['provision'])) {
+                $extension->provision = $ouiPatch['provision'];
+            }
+            if (isset($ouiPatch['sndcreds']) && Schema::hasColumn('ipphone', 'sndcreds')) {
+                $extension->sndcreds = $ouiPatch['sndcreds'];
+            }
         } elseif ($macRemoved) {
             $extension->macaddr = null;
             // Leave device (WebRTC|MAILBOX|General SIP) unchanged.
+            // Do not clear provision on MAC clear.
+        }
+
+        // C3 — catalog MAC index before local persist (conflict must not leave half-state)
+        if ($macAdded || $macChanged || $macRemoved) {
+            $sync = app(ProvisionMacIndexSync::class);
+            try {
+                if ($macAdded || $macChanged) {
+                    $tenant = cluster_identifier_to_shortuid((string) ($extension->cluster ?? ''))
+                        ?? (string) $extension->cluster;
+                    $sync->claim((string) $newMac, $tenant);
+                }
+                if (($macChanged || $macRemoved) && $originalMac !== null) {
+                    $sync->clear($originalMac);
+                }
+            } catch (\RuntimeException $e) {
+                $code = (int) $e->getCode();
+                if ($code < 400 || $code > 599) {
+                    $code = 503;
+                }
+
+                return response()->json([
+                    'macaddr' => [$e->getMessage()],
+                    'Error' => $e->getMessage(),
+                ], $code);
+            }
         }
 
         try {
@@ -867,7 +966,7 @@ class ExtensionController extends Controller
             return response()->json(['Error' => $e->getMessage()], 409);
         }
 
-        return response()->json($extension->fresh(), 200);
+        return response()->json($this->enrichProvisionFields($extension->fresh()), 200);
     }
 
 /**
@@ -995,7 +1094,13 @@ class ExtensionController extends Controller
             return response()->json(['Error' => 'Extension id is missing'], 409);
         }
         $newPass = ret_password();
-        Extension::where('id', $id)->update(['passwd' => $newPass]);
+        $patch = ['passwd' => $newPass];
+        // Password regen must re-send secrets: keep Always; else restore Once (§4.3).
+        if (Schema::hasColumn('ipphone', 'sndcreds')) {
+            $cur = trim((string) ($extension->sndcreds ?? ''));
+            $patch['sndcreds'] = strcasecmp($cur, 'Always') === 0 ? 'Always' : 'Once';
+        }
+        Extension::where('id', $id)->update($patch);
         set_commit_dirty();
 
         $extension = Extension::find($id);
@@ -1011,7 +1116,84 @@ class ExtensionController extends Controller
             $extension->tenant_pkey = $cluster;
         }
 
+        $this->enrichProvisionFields($extension);
         return response()->json($extension->makeVisible('passwd'), 200);
+    }
+
+/**
+ * Reset provision credential state to Once (SPA "Reset provision state").
+ * Server-side only — no phone crypto. See PROVISIONING_SERVER_REQUIREMENTS.md §4.3.
+ */
+    public function resetProvisionState(Extension $extension)
+    {
+        $this->assertModelClusterAllowed($extension);
+        $id = $extension->id;
+        if ($id === null || $id === '') {
+            return response()->json(['Error' => 'Extension id is missing'], 409);
+        }
+        if (!Schema::hasColumn('ipphone', 'sndcreds')) {
+            return response()->json([
+                'Error' => 'sndcreds column missing — run apply-sqlite-add-provision-columns.sh on the home',
+            ], 409);
+        }
+        Extension::where('id', $id)->update(['sndcreds' => 'Once']);
+
+        $extension = Extension::find($id);
+        if (!$extension) {
+            return response()->json(['Error' => 'Extension not found after update'], 409);
+        }
+        $cluster = $extension->cluster ?? null;
+        if ($cluster !== null && $cluster !== '') {
+            $row = DB::table('cluster')->where('pkey', $cluster)->orWhere('shortuid', $cluster)->orWhere('id', $cluster)->first(['pkey']);
+            $extension->tenant_pkey = $row ? $row->pkey : $cluster;
+        } else {
+            $extension->tenant_pkey = $cluster;
+        }
+        $this->enrichProvisionFields($extension);
+        return response()->json($extension->makeVisible('passwd'), 200);
+    }
+
+    /**
+     * Attach provision_url (and ensure sndcreds / timestamps present when columns exist).
+     */
+    private function enrichProvisionFields(?Extension $extension): ?Extension
+    {
+        if (!$extension) {
+            return $extension;
+        }
+        $fqdn = '';
+        try {
+            $globals = get_globals();
+            if ($globals && !empty($globals->fqdn)) {
+                $fqdn = (string) $globals->fqdn;
+            }
+        } catch (\Throwable $e) {
+            $fqdn = '';
+        }
+        $extension->setAttribute(
+            'provision_url',
+            ProvisionUrl::forHome($fqdn, $extension->macaddr ?? null)
+        );
+
+        $provision = (string) ($extension->provision ?? '');
+        if (trim($provision) !== '') {
+            $cluster = cluster_identifier_to_shortuid((string) ($extension->cluster ?? ''))
+                ?? (string) ($extension->cluster ?? '');
+            $customerNames = [];
+            if ($cluster !== '' && Schema::hasTable('provision_stream')) {
+                $customerNames = ProvisionStream::where('cluster', $cluster)->pluck('pkey')->all();
+            }
+            $warnings = ProvisionStreamSupport::extensionIncludeWarnings(
+                $provision,
+                ProvisionStreamSupport::systemNames(),
+                $customerNames
+            );
+            $extension->setAttribute('provision_warnings', $warnings);
+        } else {
+            $extension->setAttribute('provision_warnings', []);
+        }
+
+        return $extension;
     }
 
 /**

@@ -1,6 +1,6 @@
 # Overview
 
-**Canonical operator docs:** **pbx3-docs** → Instance API ([Methods and notation](https://aelintra.github.io/pbx3-docs/api/overview/)).
+**Canonical operator docs:** **pbx3-docs** → Instance API ([Methods and notation](https://pbx3-oss.github.io/pbx3-docs/api/overview/)).
 
 ## Methods
 

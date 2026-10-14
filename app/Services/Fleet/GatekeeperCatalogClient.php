@@ -63,4 +63,84 @@ class GatekeeperCatalogClient
 
         return is_array($json) ? $json : [];
     }
+
+    /**
+     * C3 — claim MAC in catalog index (fleet provision routing).
+     *
+     * @return array<string, mixed>
+     */
+    public function claimMac(string $mac, string $tenantShortuid, string $instanceId): array
+    {
+        if (! $this->isConfigured()) {
+            throw new \RuntimeException('Gatekeeper catalog client not configured');
+        }
+
+        $base = rtrim((string) config('pbx3_fleet.gatekeeper_url'), '/');
+        $verify = (bool) config('pbx3_fleet.gatekeeper_http_verify', true);
+
+        $response = Http::withToken((string) config('pbx3_fleet.gatekeeper_token'))
+            ->acceptJson()
+            ->withOptions(['verify' => $verify])
+            ->timeout(20)
+            ->post("{$base}/api/v1/mac-index/claim", [
+                'mac' => $mac,
+                'tenant_shortuid' => $tenantShortuid,
+                'instance_id' => $instanceId,
+            ]);
+
+        if (! $response->successful()) {
+            Log::warning('gatekeeper mac-index claim failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'mac' => $mac,
+            ]);
+            throw new \RuntimeException(
+                'Gatekeeper MAC claim failed: HTTP '.$response->status(),
+                $response->status()
+            );
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
+
+    /**
+     * C3 — clear MAC from catalog index.
+     *
+     * @return array<string, mixed>
+     */
+    public function clearMac(string $mac): array
+    {
+        if (! $this->isConfigured()) {
+            throw new \RuntimeException('Gatekeeper catalog client not configured');
+        }
+
+        $base = rtrim((string) config('pbx3_fleet.gatekeeper_url'), '/');
+        $verify = (bool) config('pbx3_fleet.gatekeeper_http_verify', true);
+
+        $response = Http::withToken((string) config('pbx3_fleet.gatekeeper_token'))
+            ->acceptJson()
+            ->withOptions(['verify' => $verify])
+            ->timeout(20)
+            ->post("{$base}/api/v1/mac-index/clear", [
+                'mac' => $mac,
+            ]);
+
+        if (! $response->successful()) {
+            Log::warning('gatekeeper mac-index clear failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'mac' => $mac,
+            ]);
+            throw new \RuntimeException(
+                'Gatekeeper MAC clear failed: HTTP '.$response->status(),
+                $response->status()
+            );
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
 }

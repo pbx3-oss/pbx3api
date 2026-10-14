@@ -11,6 +11,7 @@ use App\Http\Controllers\AstAmiController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClidBlockController;
+use App\Http\Controllers\ProvisionStreamController;
 use App\Http\Controllers\CosCloseController;
 use App\Http\Controllers\CosOpenController;
 use App\Http\Controllers\ClassOfServiceController;
@@ -147,6 +148,7 @@ Route::middleware(['auth:sanctum', 'ability:admin,tenant'])->group(function () {
     Route::put('extensions/{extension}/runtime', [ExtensionController::class, 'updateruntime']);
     Route::put('extensions/{extension}/cos', [ExtensionController::class, 'updatecos']);
     Route::post('extensions/{extension}/regenerate-sip-password', [ExtensionController::class, 'regenerateSipPassword']);
+    Route::post('extensions/{extension}/reset-provision-state', [ExtensionController::class, 'resetProvisionState']);
     Route::delete('extensions/{extension}', [ExtensionController::class, 'delete']);
 
     Route::get('conferences', [ConferenceController::class, 'index']);
@@ -182,6 +184,13 @@ Route::middleware(['auth:sanctum', 'ability:admin,tenant'])->group(function () {
     Route::post('clidblocks', [ClidBlockController::class, 'save']);
     Route::put('clidblocks/{clidblock}', [ClidBlockController::class, 'update']);
     Route::delete('clidblocks/{clidblock}', [ClidBlockController::class, 'delete']);
+
+    Route::get('provision-streams', [ProvisionStreamController::class, 'index']);
+    Route::post('provision-streams/copy-from-system', [ProvisionStreamController::class, 'copyFromSystem']);
+    Route::get('provision-streams/{name}', [ProvisionStreamController::class, 'show'])->where('name', '.*');
+    Route::post('provision-streams', [ProvisionStreamController::class, 'save']);
+    Route::put('provision-streams/{name}', [ProvisionStreamController::class, 'update'])->where('name', '.*');
+    Route::delete('provision-streams/{name}', [ProvisionStreamController::class, 'delete'])->where('name', '.*');
 
     Route::get('daytimers', [DayTimerController::class, 'index']);
     Route::get('daytimers/export/pdf', [DayTimerController::class, 'exportPdf']);

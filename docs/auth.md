@@ -1,6 +1,6 @@
 # Authorization
 
-**Canonical operator docs:** **pbx3-docs** → Instance API ([Authentication](https://aelintra.github.io/pbx3-docs/api/auth/)).
+**Canonical operator docs:** **pbx3-docs** → Instance API ([Authentication](https://pbx3-oss.github.io/pbx3-docs/api/auth/)).
 
 Before you can use the API you must be authorised. pbx3api uses **Laravel Sanctum**: token-based auth, similar to GitHub personal access tokens. You need a **Bearer token** for all protected requests.
 

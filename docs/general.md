@@ -1,6 +1,6 @@
 # API Digest
 
-**Canonical operator digest:** **pbx3-docs** → Instance API → [Endpoint reference](https://aelintra.github.io/pbx3-docs/api/reference/). This file is a historical / repo-local stub and may lag `routes/api.php`.
+**Canonical operator digest:** **pbx3-docs** → Instance API → [Endpoint reference](https://pbx3-oss.github.io/pbx3-docs/api/reference/). This file is a historical / repo-local stub and may lag `routes/api.php`.
 
 ## Agents
 ####GET /agents/{agent?}

@@ -86,3 +86,11 @@ systemctl reload "${PHP_FPM_SERVICE}" >/dev/null 2>&1 || systemctl restart "${PH
 systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1 || true
 
 echo "Installed nginx site: ${TARGET_AVAILABLE}"
+
+# Home phone provision listener (:41363 → /opt/pbx3/php/provisioning/device.php).
+# Templates live in the pbx3 package; auto fleet=HTTP / solo=HTTPS.
+if [ -x /opt/pbx3/scripts/install-provision-listener.sh ]; then
+	echo "Installing pbx3 provision listener (:41363)"
+	/opt/pbx3/scripts/install-provision-listener.sh || \
+		echo "WARNING: install-provision-listener.sh failed — run manually after pbx3 tip is installed" >&2
+fi
