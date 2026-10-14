@@ -21,6 +21,7 @@ class LogController extends Controller
 	/** List of log files to show (relative to /var/log/, except siplog/* absolute via resolveFullPath). */
 	private const LOG_FILES = [
 		'asterisk/messages',
+		'asterisk/security',
 		'asterisk/full',
 		'asterisk/sip-debug',
 		'asterisk/cdr-csv/Master.csv',
@@ -35,6 +36,7 @@ class LogController extends Controller
 	/** Map symbolic names to actual log file paths (relative to /var/log/). */
 	private const LOG_FILE_MAP = [
 		'astmessages' => 'asterisk/messages',
+		'astsecurity' => 'asterisk/security',
 		'astfull' => 'asterisk/full',
 		'astsipdebug' => 'asterisk/sip-debug',
 		'astcdrs' => 'asterisk/cdr-csv/Master.csv',
