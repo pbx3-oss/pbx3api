@@ -241,6 +241,15 @@ Artisan::command('tenant:export {tenant : cluster id, shortuid, or pkey} {--incl
             $this->line("  {$table}: {$count}");
         }
     }
+    $media = $manifest['media'] ?? [];
+    if (! empty($media['greetings_bytes']) || ! empty($media['moh_bytes']) || ! empty($media['recordings_bytes'])) {
+        $this->line(sprintf(
+            '  media: greetings=%dB moh=%dB recordings=%dB',
+            (int) ($media['greetings_bytes'] ?? 0),
+            (int) ($media['moh_bytes'] ?? 0),
+            (int) ($media['recordings_bytes'] ?? 0)
+        ));
+    }
     $detach = $result['portable_users_detach'] ?? null;
     if (is_array($detach)) {
         $this->line('Portable users detached: deleted='.$detach['deleted'].' stripped='.$detach['stripped']);
