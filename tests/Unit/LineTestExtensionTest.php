@@ -13,5 +13,6 @@ test('line test preferred dialable avoids emergency 999', function () {
     expect(LineTestExtension::preferredPkey(3))->toBe('981')
         ->and(LineTestExtension::preferredPkey(4))->toBe('9801')
         ->and(LineTestExtension::preferredPkey(5))->toBe('98001')
-        ->and(LineTestExtension::preferredPkey(2))->toBe('98');
+        // ExtLenPolicy::MIN=3 — sub-min lengths normalize to default (3→981)
+        ->and(LineTestExtension::preferredPkey(2))->toBe('981');
 });
