@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Services\HomePulseService;
 use App\Services\Snapshot\SnapshotRetention;
 //use Illuminate\Support\Facades\Response;
 //use Illuminate\Support\Facades\Validator;
@@ -119,6 +120,7 @@ class SysCommandController extends Controller
                 'detail' => $err,
             ], 502);
         }
+        app(HomePulseService::class)->invalidateSystemPosture();
         return response()->json(['message' => 'PBX started'], 200);
     }
 
@@ -136,6 +138,7 @@ class SysCommandController extends Controller
                 'detail' => $err,
             ], 502);
         }
+        app(HomePulseService::class)->invalidateSystemPosture();
         return response()->json(['message' => 'PBX stopped'], 200);
     }
 
