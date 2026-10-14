@@ -39,6 +39,9 @@ return [
     'tenant_export_dir' => env('PBX3_TENANT_EXPORT_DIR', '/opt/pbx3/bkup'),
     'tenant_schema_sql' => env('PBX3_TENANT_SCHEMA_SQL', '/opt/pbx3/db/db_sql/sqlite_create_tenant.sql'),
     'tenant_sounds_root' => env('PBX3_TENANT_SOUNDS_ROOT', '/usr/share/asterisk/sounds'),
+    // Custom MOH lives at {tenant_moh_root}/moh-{shortuid} (GenAst / TenantController).
+    // System /usr/share/asterisk/moh is instance-owned — not packed on tenant export.
+    'tenant_moh_root' => env('PBX3_TENANT_MOH_ROOT', '/usr/share/asterisk'),
     'tenant_recordings_root' => env('PBX3_TENANT_RECORDINGS_ROOT', '/opt/pbx3/media/recordings'),
 
 ];
