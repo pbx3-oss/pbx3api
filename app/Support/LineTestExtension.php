@@ -16,7 +16,7 @@ final class LineTestExtension
 
     /**
      * Preferred dialable by ext_len — not all-9s (999 is emergency in UK/IE/etc.).
-     * 3→981, 4→9801, 5→98001; 2→98.
+     * 3→981, 4→9801, 5→98001. Sub-min lengths normalize via ExtLenPolicy (→981).
      */
     public static function preferredPkey(int $extLen): string
     {
