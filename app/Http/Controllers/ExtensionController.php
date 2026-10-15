@@ -21,6 +21,7 @@ use App\Support\ProvisionUrl;
 use App\Support\ProvisionStreamSupport;
 use App\Services\Fleet\ProvisionMacIndexSync;
 use App\Services\Provision\ProvisionOuiMapper;
+use App\Services\Provision\ProvisionPreviewService;
 use App\Models\ProvisionStream;
 use Illuminate\Support\Facades\Schema;
 
@@ -1118,6 +1119,59 @@ class ExtensionController extends Controller
 
         $this->enrichProvisionFields($extension);
         return response()->json($extension->makeVisible('passwd'), 200);
+    }
+
+/**
+ * Dry-run expand provision stream for SPA preview (§4.7.1).
+ * Optional JSON body: { "provision": "…" } uses draft text; else saved row.
+ * Secrets obfuscated; no sndcreds flip / audit / last_provisioned.
+ */
+    public function previewProvision(Request $request, Extension $extension, ProvisionPreviewService $preview)
+    {
+        $this->assertModelClusterAllowed($extension);
+
+        $draft = null;
+        if ($request->exists('provision')) {
+            $draft = (string) $request->input('provision', '');
+        }
+
+        $globals = [];
+        try {
+            $g = get_globals();
+            if ($g) {
+                $globals = is_array($g) ? $g : (array) $g;
+            }
+        } catch (\Throwable $e) {
+            $globals = [];
+        }
+
+        try {
+            $result = $preview->preview($extension, $draft, $globals);
+        } catch (\Throwable $e) {
+            Log::warning('provision preview failed', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'Error' => 'Provision expand unavailable',
+                'error' => 'kernel_unavailable',
+            ], 503);
+        }
+
+        if (empty($result['ok'])) {
+            $code = ($result['error'] ?? '') === 'empty_provision' ? 422 : 400;
+
+            return response()->json([
+                'Error' => $result['error'] === 'empty_provision'
+                    ? 'Provision stream is empty'
+                    : 'Provision expand failed',
+                'error' => $result['error'] ?? 'expand_failed',
+                'include_misses' => $result['include_misses'] ?? [],
+            ], $code);
+        }
+
+        return response()->json([
+            'body' => $result['body'],
+            'include_misses' => $result['include_misses'] ?? [],
+        ], 200);
     }
 
 /**
