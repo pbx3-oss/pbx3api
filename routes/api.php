@@ -149,6 +149,7 @@ Route::middleware(['auth:sanctum', 'ability:admin,tenant'])->group(function () {
     Route::put('extensions/{extension}/cos', [ExtensionController::class, 'updatecos']);
     Route::post('extensions/{extension}/regenerate-sip-password', [ExtensionController::class, 'regenerateSipPassword']);
     Route::post('extensions/{extension}/reset-provision-state', [ExtensionController::class, 'resetProvisionState']);
+    Route::post('extensions/{extension}/provision-preview', [ExtensionController::class, 'previewProvision']);
     Route::delete('extensions/{extension}', [ExtensionController::class, 'delete']);
 
     Route::get('conferences', [ConferenceController::class, 'index']);
