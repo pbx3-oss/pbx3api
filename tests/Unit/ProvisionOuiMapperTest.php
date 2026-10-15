@@ -40,7 +40,7 @@ test('defaultProvisionForVendor yields INCLUDE grains', function () {
     expect($this->mapper->defaultProvisionForVendor('Polycom'))
         ->toBe("#INCLUDE poly.Extension\n#INCLUDE poly.udp\n");
     expect($this->mapper->defaultProvisionForVendor('snom technology AG'))
-        ->toBe("#INCLUDE snom.Extension\n#INCLUDE snom.udp\n");
+        ->toBe("#INCLUDE snomXml.Extension\n");
     expect($this->mapper->defaultProvisionForVendor('YEALINK(XIAMEN) NETWORK TECHNOLOGY CO.,LTD.'))
         ->toBe("#INCLUDE yealink.Extension\n#INCLUDE yealink.udp\n");
     expect($this->mapper->defaultProvisionForVendor('Fanvil Technology Co., Ltd'))
@@ -77,6 +77,7 @@ test('softFillPatch leaves explicit sndcreds No alone for Poly', function () {
 
 test('softFillPatch snom fills provision without sndcreds bump', function () {
     $patch = $this->mapper->softFillPatch('000413AABBCC', null, 'Once');
-    expect($patch['provision'])->toContain('snom.Extension');
+    expect($patch['provision'])->toContain('snomXml.Extension');
+    expect($patch['provision'])->not->toContain('snom.Extension');
     expect($patch)->not->toHaveKey('sndcreds');
 });

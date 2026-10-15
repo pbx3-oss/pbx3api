@@ -81,7 +81,8 @@ final class ProvisionOuiMapper
 
         return match ($grain) {
             'yealink' => "#INCLUDE yealink.Extension\n#INCLUDE yealink.udp\n",
-            'snom' => "#INCLUDE snom.Extension\n#INCLUDE snom.udp\n",
+            // #23c: new Snom desks → OEM XML family (classic snom.* kept for migrate).
+            'snom' => "#INCLUDE snomXml.Extension\n",
             'fanvil' => "#INCLUDE fanvil.Extension\n#INCLUDE fanvil.udp\n",
             'poly' => "#INCLUDE poly.Extension\n#INCLUDE poly.udp\n",
             'panasonic' => "#INCLUDE Panasonic\n#INCLUDE panasonic.udp\n",
