@@ -13,6 +13,7 @@ beforeEach(function () {
         "<?xml version=\"1.0\"?>\n<settings>\n<phone-settings e=\"2\">\n#INCLUDE snomXml.Common\n"
         ."<user_name idx=\"1\" perm=\"$\">\$sipuser</user_name>\n"
         ."<user_pass idx=\"1\" perm=\"$\">\$password</user_pass>\n"
+        ."<user_idle_text idx=\"1\" perm=\"$\">\$ext(\$desc)</user_idle_text>\n"
         ."</phone-settings>\n</settings>\n"
     );
     putenv('PBX3_PROVISION_STREAMS='.$this->streams);
@@ -53,6 +54,31 @@ test('preview expands and obfuscates user_pass', function () {
     expect($r['body'])->toContain('********');
     expect($r['body'])->not->toContain('SecretPass99');
     expect($r['body'])->toContain('filter_registrar');
+    expect($r['body'])->toContain('>401(ael1)</user_idle_text>');
+});
+
+test('preview reads Eloquent-style getAttributes (not array cast)', function () {
+    $svc = new ProvisionPreviewService;
+    $phone = new class
+    {
+        public function getAttributes(): array
+        {
+            return [
+                'pkey' => '401',
+                'shortuid' => '3cg94b',
+                'passwd' => 'SecretPass99',
+                'cluster' => 'hf3zzv',
+                'desc' => 'ael1',
+                'provision' => "#INCLUDE snomXml.Extension\n",
+            ];
+        }
+    };
+    $r = $svc->preview($phone, null, []);
+    expect($r['ok'])->toBeTrue();
+    expect($r['body'])->toContain('>3cg94b</user_name>');
+    expect($r['body'])->toContain('>401(ael1)</user_idle_text>');
+    expect($r['body'])->toContain('********');
+    expect($r['body'])->not->toContain('SecretPass99');
 });
 
 test('preview reports empty provision', function () {

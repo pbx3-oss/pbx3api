@@ -47,7 +47,7 @@ final class ProvisionPreviewService
     {
         $this->ensureKernelLoaded();
 
-        $p = is_array($phone) ? $phone : (array) $phone;
+        $p = pbx3_provision_phone_row($phone);
         $raw = $draftProvision !== null ? (string) $draftProvision : (string) ($p['provision'] ?? '');
         if (trim($raw) === '') {
             return [
@@ -73,15 +73,15 @@ final class ProvisionPreviewService
             $extra['registrar'] = $hosts['registrar'];
         }
 
-        $globals = pbx3_provision_merge_cluster_device_passwords($pdo, $phone, $globals);
-        $extra = pbx3_provision_merge_phone_hosts($pdo, $phone, $globals, $extra);
+        $globals = pbx3_provision_merge_cluster_device_passwords($pdo, $p, $globals);
+        $extra = pbx3_provision_merge_phone_hosts($pdo, $p, $globals, $extra);
 
         // Expand as Always so secret stanzas appear, then obfuscate for the SPA.
         $loop = [];
         $misses = [];
         $cluster = isset($p['cluster']) ? (string) $p['cluster'] : 'default';
         $expanded = pbx3_provision_expand($raw."\n", true, $streamsDir, $loop, $pdo, $cluster, $misses);
-        $vars = pbx3_provision_vars_from_phone($phone, $globals, $extra);
+        $vars = pbx3_provision_vars_from_phone($p, $globals, $extra);
         $body = pbx3_provision_substitute($expanded, $vars);
 
         return [
