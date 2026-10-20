@@ -26,8 +26,19 @@ class TrunkController extends Controller
 			'cname' => 'string|nullable',
 			'description' => 'string|nullable',
 			'devicerec' => 'in:None,Inbound,Outbound,Both',
-			'disa' => 'in:DISA,CALLBACK|nullable',
-			'disapass' => 'string|nullable',
+			// #8c: DISA dropped; CALLBACK hidden/future — only empty/null/None.
+			'disa' => ['nullable', 'string', function ($attribute, $value, $fail) {
+				if ($value === null || $value === '' || strcasecmp((string) $value, 'None') === 0) {
+					return;
+				}
+				$fail('DISA and CALLBACK are not supported on trunks.');
+			}],
+			'disapass' => ['nullable', 'string', function ($attribute, $value, $fail) {
+				if ($value === null || $value === '') {
+					return;
+				}
+				$fail('DISA password is not supported; leave empty.');
+			}],
 			'host' => 'string|nullable',
 			'iaxreg' => 'string|nullable',
 			'inprefix' => 'string|nullable',

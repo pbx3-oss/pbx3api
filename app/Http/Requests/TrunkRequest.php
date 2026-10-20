@@ -41,8 +41,19 @@ class TrunkRequest extends FormRequest
             'callprogress' => 'in:ON,OFF',
             'description' => 'string|max:255',
             'devicerec' => 'in:None,Inbound,Outbound,Both',
-            'disa' => 'in:DISA,CALLBACK|nullable',
-            'disapass' => 'string|nullable|min:8',
+            // #8c: DISA dropped; CALLBACK hidden/future — only empty/null/None.
+            'disa' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value === null || $value === '' || strcasecmp((string) $value, 'None') === 0) {
+                    return;
+                }
+                $fail('DISA and CALLBACK are not supported on trunks.');
+            }],
+            'disapass' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value === null || $value === '') {
+                    return;
+                }
+                $fail('DISA password is not supported; leave empty.');
+            }],
             'host' => 'required|string|max:255',
             'inprefix' => 'integer|nullable',
             'match' => 'integer|nullable',

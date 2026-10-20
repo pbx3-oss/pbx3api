@@ -35,8 +35,19 @@ class InboundRouteController extends Controller
         'cname' => 'string|nullable',
         'description' => 'string|nullable',
         'devicerec' => 'in:None,Inbound,default',
-        'disa' => 'in:DISA,CALLBACK|nullable',
-        'disapass' => 'string|nullable',
+        // #8c: DISA dropped; CALLBACK hidden/future — only empty/null/None.
+        'disa' => ['nullable', 'string', function ($attribute, $value, $fail) {
+            if ($value === null || $value === '' || strcasecmp((string) $value, 'None') === 0) {
+                return;
+            }
+            $fail('DISA and CALLBACK are not supported on inbound routes.');
+        }],
+        'disapass' => ['nullable', 'string', function ($attribute, $value, $fail) {
+            if ($value === null || $value === '') {
+                return;
+            }
+            $fail('DISA password is not supported; leave empty.');
+        }],
         'entry_dest' => 'string|nullable',
         'inprefix' => 'string|nullable',
         'match' => 'string|nullable',
