@@ -175,6 +175,40 @@ class FleetMobilityController extends Controller
     }
 
     /**
+     * Instance identity for Fleet Register probe (#5m).
+     * Gatekeeper calls with fleet service token; SPA never sees the token.
+     */
+    public function identity(): JsonResponse
+    {
+        $g = \App\Models\Sysglobal::query()->where('pkey', 'global')->first();
+        if (! $g) {
+            return response()->json(['message' => 'System globals not found'], 404);
+        }
+
+        $id = trim((string) ($g->id ?? ''));
+        $fqdn = trim((string) ($g->fqdn ?? ''));
+        $shortuid = trim((string) ($g->shortuid ?? ''));
+        if ($shortuid === '' && $fqdn !== '' && str_contains($fqdn, '.')) {
+            $shortuid = explode('.', $fqdn, 2)[0];
+        }
+        $sitename = trim((string) ($g->sitename ?? ''));
+
+        if ($id === '' || $fqdn === '') {
+            return response()->json([
+                'message' => 'globals.id or globals.fqdn empty — finish home install before Register',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'id' => $id,
+            'shortuid' => $shortuid,
+            'fqdn' => $fqdn,
+            'sitename' => $sitename !== '' ? $sitename : null,
+        ]);
+    }
+
+    /**
      * Fleet-owned friendly Name → globals.sitename (FLEET_NAMING_LOCK).
      * Sanctum cannot change sitename on fleet nodes; Gatekeeper PATCHes label then calls this.
      */

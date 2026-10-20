@@ -119,11 +119,19 @@ install_php_deps() {
     fi
 
     if [ ! -f "${REPO_ROOT}/vendor/autoload.php" ]; then
-        echo "Installing composer dependencies..."
+        echo "Installing composer dependencies (--no-scripts; discover runs after .env as www-data)..."
         cd "${REPO_ROOT}"
-        composer install --no-interaction --prefer-dist
+        # Avoid root @php artisan package:discover during install (#5l / Symfony 7.4 lazy loader).
+        COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction --prefer-dist --no-scripts
     else
         echo "Composer dependencies already present (vendor/autoload.php found)"
+    fi
+
+    if [ -f "${REPO_ROOT}/scripts/ensure-console-command-loader.php" ]; then
+        php "${REPO_ROOT}/scripts/ensure-console-command-loader.php" || {
+            echo "ensure-console-command-loader.php failed" >&2
+            exit 1
+        }
     fi
 }
 
@@ -229,12 +237,14 @@ bootstrap_laravel_app() {
     cd "${REPO_ROOT}"
     # Never run artisan as root — it creates root-owned storage/logs/laravel.log and SPA login 500s.
     if command -v runuser >/dev/null 2>&1; then
+        runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan package:discover --ansi || true"
         runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan key:generate --force || true"
         runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan migrate --force --no-interaction"
         runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan config:clear || true"
         runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan cache:clear || true"
         runuser -u www-data -- sh -c "cd '${REPO_ROOT}' && php artisan route:clear || true"
     else
+        su -s /bin/sh www-data -c "cd '${REPO_ROOT}' && php artisan package:discover --ansi || true"
         su -s /bin/sh www-data -c "cd '${REPO_ROOT}' && php artisan key:generate --force || true"
         su -s /bin/sh www-data -c "cd '${REPO_ROOT}' && php artisan migrate --force --no-interaction"
         su -s /bin/sh www-data -c "cd '${REPO_ROOT}' && php artisan config:clear || true"

@@ -100,6 +100,7 @@ Route::middleware(['auth:sanctum'])->get('fleet-posture', [FleetPostureControlle
  */
 Route::middleware(['fleet.token'])->prefix('fleet')->group(function () {
     Route::get('preflight', [FleetMobilityController::class, 'preflight']);
+    Route::get('identity', [FleetMobilityController::class, 'identity']);
     Route::get('egress-qualify', [FleetMobilityController::class, 'egressQualify']);
     Route::post('tenants', [FleetMobilityController::class, 'storeTenant']);
     Route::post('tenants/{tenant}/export', [FleetMobilityController::class, 'export']);
