@@ -30,7 +30,8 @@ cp "${SOURCE_CONF}" "${TARGET_AVAILABLE}"
 # Align fastcgi socket with selected PHP-FPM service.
 sed -i "s|^[[:space:]]*fastcgi_pass[[:space:]]\\+unix:[^;]*;|        fastcgi_pass unix:${PHP_FPM_SOCKET};|" "${TARGET_AVAILABLE}"
 
-# PHP-FPM upload limits (MOH / backups). Stock Ubuntu is 2M/8M — too small for tenant MOH.
+# PHP-FPM drop-in: upload limits (MOH / backups) + session.upload_progress Off.
+# Stock Ubuntu is 2M/8M — too small for tenant MOH.
 PHP_UPLOADS_SRC="${PHP_UPLOADS_SRC:-${REPO_ROOT}/config/php/99-pbx3-uploads.ini}"
 PHP_VERSION_SHORT="$(printf '%s' "${PHP_FPM_SERVICE}" | sed -n 's/^php\([0-9.]*\)-fpm$/\1/p')"
 if [ -z "${PHP_VERSION_SHORT}" ]; then
@@ -40,7 +41,7 @@ PHP_UPLOADS_DST="/etc/php/${PHP_VERSION_SHORT}/fpm/conf.d/99-pbx3-uploads.ini"
 if [ -f "${PHP_UPLOADS_SRC}" ]; then
 	mkdir -p "/etc/php/${PHP_VERSION_SHORT}/fpm/conf.d"
 	cp "${PHP_UPLOADS_SRC}" "${PHP_UPLOADS_DST}"
-	echo "Installed PHP-FPM upload limits: ${PHP_UPLOADS_DST}"
+	echo "Installed PHP-FPM conf.d drop-in: ${PHP_UPLOADS_DST}"
 	if [ -d "/etc/php/${PHP_VERSION_SHORT}/cli/conf.d" ]; then
 		cp "${PHP_UPLOADS_SRC}" "/etc/php/${PHP_VERSION_SHORT}/cli/conf.d/99-pbx3-uploads.ini"
 	fi
@@ -81,7 +82,7 @@ nginx -t
 systemctl enable nginx >/dev/null 2>&1 || true
 systemctl enable "${PHP_FPM_SERVICE}" >/dev/null 2>&1 || true
 systemctl start "${PHP_FPM_SERVICE}" >/dev/null 2>&1 || true
-# Reload FPM so 99-pbx3-uploads.ini takes effect on existing installs.
+# Reload FPM so 99-pbx3-uploads.ini (limits + upload_progress) takes effect.
 systemctl reload "${PHP_FPM_SERVICE}" >/dev/null 2>&1 || systemctl restart "${PHP_FPM_SERVICE}" >/dev/null 2>&1 || true
 systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1 || true
 
