@@ -23,48 +23,55 @@ class InboundRouteController extends Controller
     /** Technology / DDI type: DiD, CLiD, Class (dropdown). */
     private const TECHNOLOGY_VALUES = 'DiD,CLiD,Class';
 
-    // inroutes table. Exclude id, shortuid, z_*. Not updateable: host, iaxreg, password, peername, pjsipreg, register, trunkname, username.
-    private $updateableColumns = [
-        'pkey' => ['regex:' . self::PKEY_EXTENSION_REGEX],
-        'active' => 'in:YES,NO',
-        'alertinfo' => 'string|nullable',
-        'callback' => 'string|nullable',
-        'callerid' => 'string|nullable',
-        'closeroute' => 'string|nullable',
-        'cluster' => 'exists:cluster,pkey',
-        'cname' => 'string|nullable',
-        'description' => 'string|nullable',
-        'devicerec' => 'in:None,Inbound,default',
-        // #8c: DISA dropped; CALLBACK hidden/future — only empty/null/None.
-        'disa' => ['nullable', 'string', function ($attribute, $value, $fail) {
-            if ($value === null || $value === '' || strcasecmp((string) $value, 'None') === 0) {
-                return;
-            }
-            $fail('DISA and CALLBACK are not supported on inbound routes.');
-        }],
-        'disapass' => ['nullable', 'string', function ($attribute, $value, $fail) {
-            if ($value === null || $value === '') {
-                return;
-            }
-            $fail('DISA password is not supported; leave empty.');
-        }],
-        'entry_dest' => 'string|nullable',
-        'inprefix' => 'string|nullable',
-        'match' => 'string|nullable',
-        'moh' => 'in:YES,NO',
-        'openroute' => 'string|nullable',
-        'privileged' => 'string|nullable',
-        'route_profile' => 'string|nullable',
-        'swoclip' => 'in:YES,NO',
-        'tag' => 'string|nullable',
-        'technology' => 'in:' . self::TECHNOLOGY_VALUES,
-        'transform' => 'string|nullable',
-    ];
+    /**
+     * inroutes table. Exclude id, shortuid, z_*. Not updateable: host, iaxreg, password,
+     * peername, pjsipreg, register, trunkname, username.
+     * Method (not property): #8c closures are not valid property-default constant expressions.
+     */
+    private function updateableColumns(): array
+    {
+        return [
+            'pkey' => ['regex:' . self::PKEY_EXTENSION_REGEX],
+            'active' => 'in:YES,NO',
+            'alertinfo' => 'string|nullable',
+            'callback' => 'string|nullable',
+            'callerid' => 'string|nullable',
+            'closeroute' => 'string|nullable',
+            'cluster' => 'exists:cluster,pkey',
+            'cname' => 'string|nullable',
+            'description' => 'string|nullable',
+            'devicerec' => 'in:None,Inbound,default',
+            // #8c: DISA dropped; CALLBACK hidden/future — only empty/null/None.
+            'disa' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value === null || $value === '' || strcasecmp((string) $value, 'None') === 0) {
+                    return;
+                }
+                $fail('DISA and CALLBACK are not supported on inbound routes.');
+            }],
+            'disapass' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value === null || $value === '') {
+                    return;
+                }
+                $fail('DISA password is not supported; leave empty.');
+            }],
+            'entry_dest' => 'string|nullable',
+            'inprefix' => 'string|nullable',
+            'match' => 'string|nullable',
+            'moh' => 'in:YES,NO',
+            'openroute' => 'string|nullable',
+            'privileged' => 'string|nullable',
+            'route_profile' => 'string|nullable',
+            'swoclip' => 'in:YES,NO',
+            'tag' => 'string|nullable',
+            'technology' => 'in:' . self::TECHNOLOGY_VALUES,
+            'transform' => 'string|nullable',
+        ];
+    }
 
 	/** Return column names that are updateable (for schema metadata). */
 	public function getUpdateableColumns(): array
 	{
-		return array_keys($this->updateableColumns);
+		return array_keys($this->updateableColumns());
 	}
 
 /**
@@ -125,7 +132,7 @@ class InboundRouteController extends Controller
         }
 
 // validate (pkey + technology from dropdown; technology is DB column)
-        $rules = array_merge($this->updateableColumns, [
+        $rules = array_merge($this->updateableColumns(), [
             'pkey' => ['required', 'regex:' . self::PKEY_EXTENSION_REGEX],
             'technology' => 'required|in:' . self::TECHNOLOGY_VALUES,
             'cluster' => 'required|exists:cluster,pkey',
@@ -166,7 +173,7 @@ class InboundRouteController extends Controller
             return response()->json($validator->errors(),422);
         }
 
-        move_request_to_model($request, $inboundroute, $this->updateableColumns);
+        move_request_to_model($request, $inboundroute, $this->updateableColumns());
         $inboundroute->cluster = $clusterShortuid;
         // Set pkey from request (may be "0" — valid DiD/CLiD; don't use empty() here)
         $inboundroute->pkey = trim((string) $request->input('pkey', ''));
@@ -224,7 +231,7 @@ class InboundRouteController extends Controller
 
         $this->normalizeInboundRouteRouteJsonScalars($request);
 
-        $validator = Validator::make($request->all(), $this->updateableColumns, [
+        $validator = Validator::make($request->all(), $this->updateableColumns(), [
             'pkey.regex' => 'Number must be digits (optional leading + for E.164), pattern _XZN.! (e.g. _2XXX), or special s/i/t.',
         ]);
         $validator->setAttributeNames(['pkey' => 'Number (DiD/CLiD)']);
@@ -254,7 +261,7 @@ class InboundRouteController extends Controller
             return response()->json($validator->errors(),422);
         }
 
-        move_request_to_model($request, $inboundroute, $this->updateableColumns);
+        move_request_to_model($request, $inboundroute, $this->updateableColumns());
         $clusterShortuid = cluster_identifier_to_shortuid($request->input('cluster'));
         if ($clusterShortuid !== null) {
             $this->assertClusterAllowed($clusterShortuid);
