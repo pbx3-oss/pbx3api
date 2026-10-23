@@ -14,10 +14,14 @@ use Illuminate\Support\Facades\Validator;
 class TrunkController extends Controller
 {
     //
-	// trunks table (sqlite_create_instance.sql). Only columns that exist in DB; exclude id, shortuid, z_*. Updateable set from TRUNK_AUDIT_PROTOTYPE.md.
-    	private $updateableColumns = [
-    		'pkey' => 'string|nullable',
-    		'active' => 'in:YES,NO',
+	// trunks table (sqlite_create_instance.sql). Only columns that exist in DB; exclude id, shortuid, z_*.
+	// Updateable set from TRUNK_AUDIT_PROTOTYPE.md.
+	// Method (not property): #8c closures are not valid property-default constant expressions.
+	private function updateableColumns(): array
+	{
+		return [
+			'pkey' => 'string|nullable',
+			'active' => 'in:YES,NO',
 			'alertinfo' => 'string|nullable',
 			'callback' => 'string|nullable',
 			'callerid' => 'string|nullable',
@@ -55,12 +59,13 @@ class TrunkController extends Controller
 			'trunkname' => 'string|nullable',
 			'username' => 'string|nullable',
 			'pjsip_overlay' => 'nullable|string|max:16384',
-    	];
+		];
+	}
 
 	/** Return column names that are updateable (for schema metadata). */
 	public function getUpdateableColumns(): array
 	{
-		return array_keys($this->updateableColumns);
+		return array_keys($this->updateableColumns());
 	}
 
 /**
@@ -161,7 +166,7 @@ class TrunkController extends Controller
 		$this->normalizeTrunkPjsipregOnWrite($request, null);
 
 // validation (technology from user; SIP or IAX2; no Carrier table)
-		$createRules = array_merge($this->updateableColumns, [
+		$createRules = array_merge($this->updateableColumns(), [
 			'pkey' => 'required|string',
 			'technology' => 'required|in:SIP,IAX2',
 			'cluster' => 'required|exists:cluster,pkey',
@@ -245,7 +250,7 @@ class TrunkController extends Controller
 
 		$this->normalizeTrunkPjsipregOnWrite($request, $trunk);
 
-		$updateRules = $this->updateableColumns;
+		$updateRules = $this->updateableColumns();
 		unset($updateRules['cluster']);
 		if ($manufactured) {
 			foreach ($this->fleetManufacturedLockedColumns() as $col) {
