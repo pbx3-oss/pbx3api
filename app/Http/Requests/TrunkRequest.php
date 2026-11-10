@@ -64,7 +64,8 @@ class TrunkRequest extends FormRequest
             'swoclip' => 'in:YES,NO',
             'tag' => 'string|nullable',
             'transport' => 'in:udp,tcp,tls,wss',
-            'transform' => ['regex:/^(\d+?:\d+?\s*)+$/', 'nullable'],
+            'transform' => ['nullable', 'string', 'regex:/^(([^:\s]*):([^:\s]*)\s*)*$/'],
+            'inbound_transform' => ['nullable', 'string', 'regex:/^(([^:\s]*):([^:\s]*)\s*)*$/'],
             'trunkname' => 'required|string|max:255',
             'username' => 'string|nullable',
             'z_updater' => 'string|nullable'

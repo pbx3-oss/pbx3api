@@ -54,7 +54,8 @@ class TrunkController extends Controller
 			'swoclip' => 'in:YES,NO',
 			'tag' => 'string|nullable',
 			'technology' => 'in:SIP,IAX2|nullable',
-			'transform' => 'string|nullable',
+			'transform' => ['nullable', 'string', 'regex:/^(([^:\s]*):([^:\s]*)\s*)*$/'],
+			'inbound_transform' => ['nullable', 'string', 'regex:/^(([^:\s]*):([^:\s]*)\s*)*$/'],
 			'transport' => 'in:udp,tcp,tls,wss',
 			'trunkname' => 'string|nullable',
 			'username' => 'string|nullable',
@@ -380,6 +381,8 @@ class TrunkController extends Controller
 			'privileged',
 			'match',
 			'active',
+			// Solo DID normalize — fleet Egress already receives +E.164 from the SBC.
+			'inbound_transform',
 		];
 	}
 
