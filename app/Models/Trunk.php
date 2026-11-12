@@ -56,6 +56,7 @@ class Trunk extends Model
         'tag',
         'technology',
         'transform',
+        'inbound_transform',
         'transport',
         'trunkname',
         'username',
