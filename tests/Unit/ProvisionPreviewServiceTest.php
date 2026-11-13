@@ -35,7 +35,7 @@ afterEach(function () {
     unset($_ENV['PBX3_PROVISION_KERNEL']);
 });
 
-test('preview expands and obfuscates user_pass', function () {
+test('preview expands with cleartext user_pass', function () {
     $svc = new ProvisionPreviewService;
     $phone = (object) [
         'pkey' => '401',
@@ -51,8 +51,8 @@ test('preview expands and obfuscates user_pass', function () {
     expect($r['body'])->toContain('<settings>');
     expect($r['body'])->toContain('>3cg94b</user_name>');
     expect($r['body'])->toContain('<user_pass');
-    expect($r['body'])->toContain('********');
-    expect($r['body'])->not->toContain('SecretPass99');
+    expect($r['body'])->toContain('SecretPass99');
+    expect($r['body'])->not->toContain('********');
     expect($r['body'])->toContain('filter_registrar');
     expect($r['body'])->toContain('>401(ael1)</user_idle_text>');
 });
@@ -77,8 +77,8 @@ test('preview reads Eloquent-style getAttributes (not array cast)', function () 
     expect($r['ok'])->toBeTrue();
     expect($r['body'])->toContain('>3cg94b</user_name>');
     expect($r['body'])->toContain('>401(ael1)</user_idle_text>');
-    expect($r['body'])->toContain('********');
-    expect($r['body'])->not->toContain('SecretPass99');
+    expect($r['body'])->toContain('SecretPass99');
+    expect($r['body'])->not->toContain('********');
 });
 
 test('preview reports empty provision', function () {
