@@ -7,8 +7,9 @@ use PDO;
 
 /**
  * Dry-run provision expand for SPA preview (§4.7.1).
- * Same INCLUDE + substitute path as the phone listener; secrets obfuscated;
- * no sndcreds flip, audit, or last_provisioned bump.
+ * Same INCLUDE + substitute path as the phone listener; cleartext secrets in
+ * preview (privileged admin). Audit logs still obfuscate via the kernel helper.
+ * No sndcreds flip, audit write, or last_provisioned bump.
  */
 final class ProvisionPreviewService
 {
@@ -76,7 +77,7 @@ final class ProvisionPreviewService
         $globals = pbx3_provision_merge_cluster_device_passwords($pdo, $p, $globals);
         $extra = pbx3_provision_merge_phone_hosts($pdo, $p, $globals, $extra);
 
-        // Expand as Always so secret stanzas appear, then obfuscate for the SPA.
+        // Expand as Always so secret stanzas appear (what the phone would get).
         $loop = [];
         $misses = [];
         $cluster = isset($p['cluster']) ? (string) $p['cluster'] : 'default';
@@ -86,7 +87,7 @@ final class ProvisionPreviewService
 
         return [
             'ok' => true,
-            'body' => pbx3_provision_obfuscate_for_audit($body),
+            'body' => $body,
             'include_misses' => array_values(array_unique($misses)),
         ];
     }

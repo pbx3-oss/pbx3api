@@ -1124,7 +1124,7 @@ class ExtensionController extends Controller
 /**
  * Dry-run expand provision stream for SPA preview (§4.7.1).
  * Optional JSON body: { "provision": "…" } uses draft text; else saved row.
- * Secrets obfuscated; no sndcreds flip / audit / last_provisioned.
+ * Cleartext secrets (admin preview); no sndcreds flip / audit / last_provisioned.
  */
     public function previewProvision(Request $request, Extension $extension, ProvisionPreviewService $preview)
     {
